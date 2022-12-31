@@ -1,0 +1,155 @@
+From dd9f106c0d8545b043318b17ad257d0849778e94 Mon Sep 17 00:00:00 2001
+From: varsha-66 <varsha.maddika@gmail.com>
+Date: Sat, 31 Dec 2022 23:15:24 +0530
+Subject: [PATCH] Create Patch File
+
+---
+ server.py           |  4 ++--
+ src/App.tsx         | 31 +++++++++++++++++++++++++++----
+ src/DataStreamer.ts |  2 +-
+ src/Graph.tsx       | 16 ++++++++++++++--
+ 4 files changed, 44 insertions(+), 9 deletions(-)
+
+diff --git a/server.py b/server.py
+index 68f4659..454d569 100644
+--- a/server.py
++++ b/server.py
+@@ -218,7 +218,7 @@ def get(req_handler, routes):
+                 return
+ 
+ 
+-def run(routes, host='0.0.0.0', port=8080):
++def run(routes, host='0.0.0.0', port=8085):
+     """ Runs a class as a server whose methods have been decorated with
+         @route.
+     """
+@@ -234,7 +234,7 @@ def run(routes, host='0.0.0.0', port=8080):
+     thread = threading.Thread(target=server.serve_forever)
+     thread.daemon = True
+     thread.start()
+-    print('HTTP server started on port 8080')
++    print('HTTP server started on port 8085')
+     while True:
+         from time import sleep
+         sleep(1)
+diff --git a/src/App.tsx b/src/App.tsx
+index 0728518..0053535 100755
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -8,6 +8,8 @@ import './App.css';
+  */
+ interface IState {
+   data: ServerRespond[],
++  //adding showGraph property
++  showGraph: boolean,
+ }
+ 
+ /**
+@@ -22,6 +24,8 @@ class App extends Component<{}, IState> {
+       // data saves the server responds.
+       // We use this state to parse data down to the child element (Graph) as element property
+       data: [],
++      //define initial state of graph as hidden(graph only appears when clicked on button)
++      showGraph: false,
+     };
+   }
+ 
+@@ -29,18 +33,37 @@ class App extends Component<{}, IState> {
+    * Render Graph react component with state.data parse as property data
+    */
+   renderGraph() {
+-    return (<Graph data={this.state.data}/>)
++    //To ensure that the graph doesn’t render until the button is clicked
++    if(this.state.showGraph){
++      return (<Graph data={this.state.data}/>)
++    }
++    
+   }
+ 
+   /**
+    * Get new data from server and update the state with the new data
+    */
+   getDataFromServer() {
+-    DataStreamer.getData((serverResponds: ServerRespond[]) => {
++    //to get data from it continuously instead of just getting data from it once every time you click the button.
++    let x=0;
++    const interval = setInterval(() => {
++      DataStreamer.getData((serverResponds: ServerRespond[]) => {
++          this.setState({
++              data: serverResponds,
++              showGraph: true
++          });
++      });
++      x++;
++      if (x > 1000) {
++          clearInterval(interval);
++      }
++  }, 100);
++
++    //DataStreamer.getData((serverResponds: ServerRespond[]) => {
+       // Update the state by creating a new array of data that consists of
+       // Previous data in the state and the new data from server
+-      this.setState({ data: [...this.state.data, ...serverResponds] });
+-    });
++      //this.setState({ data: [...this.state.data, ...serverResponds] });
++    //});
+   }
+ 
+   /**
+diff --git a/src/DataStreamer.ts b/src/DataStreamer.ts
+index 78583cb..eef3f09 100644
+--- a/src/DataStreamer.ts
++++ b/src/DataStreamer.ts
+@@ -15,7 +15,7 @@ export interface ServerRespond {
+ 
+ class DataStreamer {
+   // The url where datafeed server is listening
+-  static API_URL: string = 'http://localhost:8080/query?id=1';
++  static API_URL: string = 'http://localhost:8085/query?id=1';
+ 
+   /**
+    * Send request to the datafeed server and executes callback function on success
+diff --git a/src/Graph.tsx b/src/Graph.tsx
+index 3b2a7da..150bccc 100644
+--- a/src/Graph.tsx
++++ b/src/Graph.tsx
+@@ -14,7 +14,8 @@ interface IProps {
+  * Perspective library adds load to HTMLElement prototype.
+  * This interface acts as a wrapper for Typescript compiler.
+  */
+-interface PerspectiveViewerElement {
++// to enable the `PerspectiveViewerElement` to behave like anHTMLElement. 
++interface PerspectiveViewerElement extends HTMLElement {
+   load: (table: Table) => void,
+ }
+ 
+@@ -32,7 +33,11 @@ class Graph extends Component<IProps, {}> {
+ 
+   componentDidMount() {
+     // Get element to attach the table from the DOM.
+-    const elem: PerspectiveViewerElement = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
++    // can simplify the `const elem` definition by assigning it directly to `document.getElementsByTagName`
++    const elem = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
++    
++
++    //const elem: PerspectiveViewerElement = document.getElementsByTagName('perspective-viewer')[0] as unknown as PerspectiveViewerElement;
+ 
+     const schema = {
+       stock: 'string',
+@@ -49,6 +54,13 @@ class Graph extends Component<IProps, {}> {
+ 
+       // Add more Perspective configurations here.
+       elem.load(this.table);
++      elem.setAttribute("view", "y_line");
++      elem.setAttribute("column-pivots", '["stock"]');
++      elem.setAttribute("row-pivots", '["timestamp"]');
++      elem.setAttribute("columns", '["top_ask_price"]');
++      elem.setAttribute("aggregates",
++          '{"stock":"distinct_count", "top_ask_price":"avg", "top_bid_price":"avg", "timestamp":"distinct_count"}'
++      );
+     }
+   }
+ 
+-- 
+2.36.1.windows.1
+
